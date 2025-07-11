@@ -4,8 +4,27 @@
 import os
 import tempfile
 from typing import Dict, List, Any, Optional
+from fractions import Fraction
+
 import ffmpeg
 from src.agent_sdk.schemas.youtube import VideoProcessingResult
+
+
+
+def _safe_fps(r_frame_rate: str) -> float:
+    """Safely convert FFmpeg r_frame_rate string to float.
+
+    FFprobe returns the frame-rate as a string like "30000/1001".  In the
+    original implementation this value was passed to ``eval()``, which could
+    execute arbitrary code if the media file was maliciously crafted.  This
+    helper parses the string using ``fractions.Fraction`` and falls back to
+    ``0.0`` if the value is invalid.
+    """
+
+    try:
+        return float(Fraction(r_frame_rate))
+    except (ZeroDivisionError, ValueError):
+        return 0.0
 
 
 def get_system_font_path() -> str:
@@ -499,7 +518,7 @@ def get_video_info(video_path: str) -> Dict[str, Any]:
                 {
                     "width": int(video_stream.get("width", 0)),
                     "height": int(video_stream.get("height", 0)),
-                    "fps": eval(video_stream.get("r_frame_rate", "0/1")),
+                    "fps": _safe_fps(video_stream.get("r_frame_rate", "0/1")),
                     "video_codec": video_stream.get("codec_name", ""),
                 }
             )
