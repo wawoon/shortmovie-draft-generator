@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
@@ -123,11 +124,21 @@ def get_file_text(file_path: Path, simple_ppt: bool = False) -> Any:
                         indent=2,
                     )
             elif file_extension == ".doc":
-                os.system(f"antiword {full_path} > {base_name}.txt")
-                with open(f"{base_name}.txt", "r", encoding="utf-8") as txt_file:
-                    file_text = txt_file.read()
-                os.remove(f"{base_name}.txt")
-                return file_text
+
+                try:
+                    completed = subprocess.run(
+                        ["antiword", full_path],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=True,
+                    )
+                except FileNotFoundError:
+                    return "antiword コマンドが見つかりません。antiword をインストールしてください。"
+                except subprocess.CalledProcessError as e:
+                    err_msg = e.stderr.decode("utf-8", errors="replace")
+                    return f"antiword でのテキスト抽出に失敗しました: {err_msg}"
+
+                return completed.stdout.decode("utf-8", errors="replace")
             elif file_extension in [".txt", ".md", ".csv", ".tsv", ".py", ".json", ".yaml", ".yml"]:
                 import chardet
 
